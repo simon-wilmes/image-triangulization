@@ -16,7 +16,7 @@ img = mpimg.imread(IMG_FOLDER + "/" + IMAGE_INPUT)
 
 num_points = 10000
 
-indices_save_image = range(100,10000,100)
+indices_save_image = range(20,10000,20)
 
 height, width = len(img), len(img[0])
 
@@ -25,7 +25,7 @@ height, width = len(img), len(img[0])
 np.random.seed(seed=0)
 
 
-RARENESS = 20
+
 
 def get_avg_color_triangle(triangle, points, img):
     vx = points[triangle[0]]
@@ -67,27 +67,31 @@ def colorin_triangle(triangle, points, img, color):
                 img[i,j] = color
 
 def main():
-    round = 0
+    r = 0
     points = [(0,0),(0,width - 1),(height - 1,0),(height - 1,width - 1)]
     tri = Delaunay(points)
     start_time = time()
+    rareness = 1
     
     while(len(points) != num_points):
-        round += 1
+        print(r, end="\t", flush=True)
+        r += 1
         
         random_point = (randint(0, height), randint(0, width))
         # get color
-        triangle = tri.find_simplex(random_point)
+        triangle = tri.simplices[tri.find_simplex(random_point)]
         # get color of triangle
         
         col = get_avg_color_triangle(triangle, points, img)
         
         difference = np.sum(np.absolute(col - img[random_point]))
         
-        if(random() * RARENESS < difference):
+        if(random() * rareness < difference):
             points.append(random_point)
             tri = Delaunay(points)
-        
+            print(f"succesfull {len(points)}", end="\t")
+            rareness = 3 - 3.5 * 1 / (len(points))**(1/3)
+            print("new rareness", rareness)
             if(len(points) in indices_save_image):
                 img_with_points = img.copy()
 
@@ -96,7 +100,7 @@ def main():
 
                 for triangle in triangles:
                     color_list.append(get_avg_color_triangle(triangle, points, img))
-                    colorin_triangle(triangle, points, img, color_list[-1])
+                    colorin_triangle(triangle, points, img_with_points, color_list[-1])
 
                 """
                 fig = plt.figure("Show two images")
@@ -108,8 +112,8 @@ def main():
                 plt.show()
                 """
                 # Save image
-                print(round, round(time() - start_time,1))
-                mpimg.imsave(f"{IMG_FOLDER}/tri_image-{round}-{pixels_per_run}.png",img_with_points)
+                print(r, round(time() - start_time,1))
+                mpimg.imsave(f"{IMG_FOLDER}/tri_image-{r}.png",img_with_points)
             
             
 
