@@ -6,13 +6,15 @@ from numpy.random import randint, random
 from scipy.spatial import Delaunay
 from matplotlib.path import Path
 from time import time
+from itertools import chain
+
 # Init
 # Load image 
 IMAGE_INPUT = 'papa-start-bild.jpg'
 IMG_FOLDER = 'img/papa-bild'
 IMG_TYPE = 'png'
 
-img = mpimg.imread(IMG_FOLDER + "/" + IMAGE_INPUT)
+
 
 num_points = 10000
 
@@ -24,64 +26,92 @@ while(s < num_points):
     k += 1
     indices_save_image.append(s)
 
-height, width = len(img), len(img[0])
+
 
 
 
 np.random.seed(seed=0)
 
+def get_triangle_points_sorted(triangle, points):
+    return sorted([points[triangle[0]], points[triangle[1], points[triangle[2]]]], key=lambda x: x[1])
 
-
-
-def get_avg_color_triangle(triangle, points, img):
-    vx = points[triangle[0]]
-    vy = points[triangle[1]]
-    vz = points[triangle[2]]
-    min_px = min(vx[0],vy[0],vz[0])
-    max_px = max(vx[0],vy[0],vz[0])
-    min_py = min(vx[1],vy[1],vz[1])
-    max_py = max(vx[1],vy[1],vz[1])
-    
-    avg_col = [0] * len(img[0,0])
-    num_of_v = 0
-    
-    path = Path([vx,vy,vz])
-    
-    for i in range(min_px,max_px):
-        for j in range(min_py,max_py):
-            if(path.contains_point((i,j))):
-                avg_col += img[i,j]
-                num_of_v += 1
-    if(num_of_v == 0):
-        avg_col = img[vx[0],vx[1]]
+def get_triangle_iterator(px, py, pz):
+    if(px[0] == py[0]):
+        iterator = iterator_triangle_bottom(px, py, pz, offset=1)
+    elif( py[0] == pz[0]):
+        iterator = iterator_triangle_top(px, py, pz)
     else:
-        avg_col = [x / num_of_v for x in avg_col]
-    return avg_col
+        pt = (py[0], px[1] + (py[0] - px[0]) / (pz[0] - px[0]) * (pz[1] - px[1]))
+        
+        iterator = chain(iterator_triangle_top(px, py, pt), iterator_triangle_bottom(py, pt, pz))
+    return iterator
 
+
+def get_avg_color_triangle(triangle, points, img_sum):
+    
+    px, py, pz = get_triangle_points_sorted(triangle, points)
+    for line in get_triangle_iterator(px, py, pz):
+
+
+    
+
+def iterator_triangle_top(v1, v2, v3, offset = 1):
+    invslope1 = (v2[1] - v1[1]) / (v2[0] - v1[0])
+    invslope2 = (v3[1] - v1[1]) / (v3[0] - v1[0])
+    
+    if(invslope2 < invslope1):
+        invslope1, invslope2 = invslope2, invslope1 
+    
+    
+    curx1 = v1[1]
+    curx2 = v1[1]
+    
+    for scanline_y in range(v1[0], v2[0] + offset):
+        yield (scanline_y, np.ceil(curx1), np.floor(curx2) + 1)
+        curx1 += invslope1
+        curx2 += invslope2
+    
+def iterator_triangle_bottom(v1, v2, v3, offset = 0):
+    invslope2 = (v2[1] - v3[1]) / (v2[0] - v3[0])
+    invslope1 = (v1[1] - v3[1]) / (v1[0] - v3[0])
+    
+    if(invslope2 > invslope1):
+        invslope1, invslope2 = invslope2, invslope1 
+    
+    
+    curx1 = v3[1]
+    curx2 = v3[1]
+    
+    for scanline_y in range(v3[0], v1[0] + offset, -1):
+        yield (scanline_y, np.ceil(curx1), np.floor(curx2) + 1)
+        curx1 -= invslope1
+        curx2 -= invslope2
+    
 def colorin_triangle(triangle, points, img, color):
     vx = points[triangle[0]]
     vy = points[triangle[1]]
     vz = points[triangle[2]]
-    min_px = min(vx[0],vy[0],vz[0])
-    max_px = max(vx[0],vy[0],vz[0])
-    min_py = min(vx[1],vy[1],vz[1])
-    max_py = max(vx[1],vy[1],vz[1])
-    path = Path([vx,vy,vz])
-    for i in range(min_px,max_px):
-        for j in range(min_py,max_py):
-            if(path.contains_point((i,j))):
-                img[i,j] = color
+
+
+
+
+
 def rare(n):
     return 5 - 9 * 1 / n**(1/2)
 
 
 def main():
-    r = 0
+    # IMAGE
+    img = mpimg.imread(IMG_FOLDER + "/" + IMAGE_INPUT)
+    height, width = len(img), len(img[0])
+    
     points = [(0,0),(0,width - 1),(height - 1,0),(height - 1,width - 1)]
     tri = Delaunay(points)
     start_time = time()
     rareness = 1
     
+    
+    r = 0
     while(len(points) != num_points):
         print(r, end="\t", flush=True)
         r += 1
@@ -111,15 +141,6 @@ def main():
                     color_list.append(get_avg_color_triangle(triangle, points, img))
                     colorin_triangle(triangle, points, img_with_points, color_list[-1])
 
-                """
-                fig = plt.figure("Show two images")
-
-                ax = fig.add_subplot(1,2,1)
-                plt.imshow(img)
-                ax = fig.add_subplot(1,2,2)
-                plt.imshow(img_with_points)
-                plt.show()
-                """
                 # Save image
                 print("saveimage", r, round(time() - start_time,1))
                 mpimg.imsave(f"{IMG_FOLDER}/tri_image-{len(points):05d}-{r}.{IMG_TYPE}",img_with_points)
@@ -127,4 +148,10 @@ def main():
             
 
 if __name__ == "__main__":
-    main()
+        
+    for i in iterator_triangle_top((0,3),(3,0),(3,4.5)):
+        print(i)
+    for i in iterator_triangle_bottom((0,1),(0,20),(10,10)):
+        print(i)
+    pass
+    #main()
