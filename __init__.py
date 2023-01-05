@@ -8,15 +8,21 @@ from matplotlib.path import Path
 from time import time
 # Init
 # Load image 
-IMAGE_INPUT = 'family_image.png'
-IMG_FOLDER = 'img'
-
+IMAGE_INPUT = 'papa-start-bild.jpg'
+IMG_FOLDER = 'img/papa-bild'
+IMG_TYPE = 'png'
 
 img = mpimg.imread(IMG_FOLDER + "/" + IMAGE_INPUT)
 
 num_points = 10000
 
-indices_save_image = range(20,10000,20)
+indices_save_image = [6]
+s = 6
+k = 4
+while(s < num_points):
+    s += k
+    k += 1
+    indices_save_image.append(s)
 
 height, width = len(img), len(img[0])
 
@@ -65,6 +71,9 @@ def colorin_triangle(triangle, points, img, color):
         for j in range(min_py,max_py):
             if(path.contains_point((i,j))):
                 img[i,j] = color
+def rare(n):
+    return 5 - 9 * 1 / n**(1/2)
+
 
 def main():
     r = 0
@@ -90,7 +99,7 @@ def main():
             points.append(random_point)
             tri = Delaunay(points)
             print(f"succesfull {len(points)}", end="\t")
-            rareness = 3 - 3.5 * 1 / (len(points))**(1/3)
+            rareness = rare(len(points))
             print("new rareness", rareness)
             if(len(points) in indices_save_image):
                 img_with_points = img.copy()
@@ -112,8 +121,8 @@ def main():
                 plt.show()
                 """
                 # Save image
-                print(r, round(time() - start_time,1))
-                mpimg.imsave(f"{IMG_FOLDER}/tri_image-{r}.png",img_with_points)
+                print("saveimage", r, round(time() - start_time,1))
+                mpimg.imsave(f"{IMG_FOLDER}/tri_image-{len(points):05d}-{r}.{IMG_TYPE}",img_with_points)
             
             
 
