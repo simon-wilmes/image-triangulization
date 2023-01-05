@@ -14,17 +14,18 @@ IMAGE_INPUT = 'papa-start-bild.jpg'
 IMG_FOLDER = 'img/papa-bild'
 IMG_TYPE = 'jpg'
 
-MAX_DIFF_VALUE = 3 * 255
+MAX_DIFF_VALUE = 3 * 255 # depends on image type (jpg vs png)
 
-num_points = 10000
+NUM_POINTS = 10000
 
+# indices = [6, 10, 15, 21, 28, 36, 45, 55 ....]
 indices_save_image = [6]
-s = 6
-k = 4
-while(s < num_points):
-    s += k
-    k += 1
-    indices_save_image.append(s)
+running_sum = 6
+inc = 4
+while(running_sum < NUM_POINTS):
+    running_sum += inc
+    inc += 1
+    indices_save_image.append(running_sum)
 
 
 
@@ -58,7 +59,7 @@ def iterator_triangle_top(v1, v2, v3, offset = 1):
     curx2 = v1[1]
     
     for scanline_y in range(v1[0], v2[0] + offset):
-        yield (scanline_y, np.ceil(curx1), np.floor(curx2) + 1)
+        yield (scanline_y, int(np.ceil(curx1)), int(np.floor(curx2) + 1))
         curx1 += invslope1
         curx2 += invslope2
     
@@ -74,7 +75,7 @@ def iterator_triangle_bottom(v1, v2, v3, offset = 0):
     curx2 = v3[1]
     
     for scanline_y in range(v3[0], v1[0] + offset, -1):
-        yield (scanline_y, np.ceil(curx1), np.floor(curx2) + 1)
+        yield (scanline_y, int(np.ceil(curx1)), int(np.floor(curx2) + 1))
         curx1 -= invslope1
         curx2 -= invslope2
     
@@ -104,7 +105,7 @@ def colorin_triangle(triangle, points, img, color):
 def update_rareness(n):
     # some formula that for n -> infty goes to 1 
     # speed determines how often new points are choosen early relative to later on
-    return 1 - 4 * 1 / n**(1/2) 
+    return 1 - 1 / (n / 4)**(1/2) 
 
 
 
@@ -115,24 +116,24 @@ def main():
     
     pixel_size = len(img[0,0])
     # Create running sum array
-    
+    print("Calculate Running Sum Array")
     img_sum = np.zeros(shape=(height, width + 1, pixel_size))
     for i in range(height):
         running_sum = img_sum[0,0].copy()
         for j in range(1, width + 1):
             running_sum += img[i,j - 1]
             img_sum[i, j] = running_sum.copy()
-    
+    print("Finished Running Sum Array")
     
     points = [(0,0),(0,width - 1),(height - 1,0),(height - 1,width - 1)]
     tri = Delaunay(points)
     start_time = time()
-    rareness = 1
+    rareness = update_rareness(len(points))
     
     triangle_col_cal = {}
     
     r = 0
-    while(len(points) != num_points):
+    while(len(points) != NUM_POINTS):
         print(r, end="\t", flush=True)
         r += 1
         
@@ -144,13 +145,13 @@ def main():
         if(triangle in triangle_col_cal):
             col = triangle_col_cal[triangle]
         else:
-            col = get_avg_color_triangle(triangle, points, img)
+            col = get_avg_color_triangle(triangle, points, img_sum)
             triangle_col_cal[triangle] = col
         
         
         difference = np.sum(np.absolute(col - img[random_point]))
         
-        if(random() * rareness < difference / MAX_DIFF_VALUE):
+        if(random() * rareness < (difference / MAX_DIFF_VALUE)**3):
             # if successfull add point
             points.append(random_point)
             # recalculate triangles
@@ -171,7 +172,7 @@ def main():
                 color_list = []
                 # draw triangles
                 for triangle in triangles:
-                    color_list.append(get_avg_color_triangle(triangle, points, img))
+                    color_list.append(get_avg_color_triangle(triangle, points, img_sum))
                     colorin_triangle(triangle, points, img_with_points, color_list[-1])
 
                 # Save image
