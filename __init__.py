@@ -33,7 +33,7 @@ while(s < num_points):
 np.random.seed(seed=0)
 
 def get_triangle_points_sorted(triangle, points):
-    return sorted([points[triangle[0]], points[triangle[1], points[triangle[2]]]], key=lambda x: x[1])
+    return sorted([points[triangle[0]], points[triangle[1]], points[triangle[2]]], key=lambda x: x[0] - 1 / (x[1] + 1))
 
 def get_triangle_iterator(px, py, pz):
     if(px[0] == py[0]):
@@ -50,10 +50,12 @@ def get_triangle_iterator(px, py, pz):
 def get_avg_color_triangle(triangle, points, img_sum):
     
     px, py, pz = get_triangle_points_sorted(triangle, points)
-    for line in get_triangle_iterator(px, py, pz):
-        
-
-    
+    avg_color = img_sum[0,0].copy()
+    avg_count = 0
+    for line, x, y in get_triangle_iterator(px, py, pz):
+        avg_color += img_sum[line,y] - img_sum[line,x]
+        avg_count += y - x
+    return (avg_color / avg_count)
 
 def iterator_triangle_top(v1, v2, v3, offset = 1):
     invslope1 = (v2[1] - v1[1]) / (v2[0] - v1[0])
@@ -110,10 +112,10 @@ def main():
     
     img_sum = np.zeros(shape=(height, width + 1, pixel_size))
     for i in range(height):
-        running_sum = img_sum[0,0]
+        running_sum = img_sum[0,0].copy()
         for j in range(1, width + 1):
             running_sum += img[i,j]
-            img_sum[i, i] = running_sum
+            img_sum[i, i] = running_sum.copy()
     
     
     points = [(0,0),(0,width - 1),(height - 1,0),(height - 1,width - 1)]
@@ -159,7 +161,7 @@ def main():
             
 
 if __name__ == "__main__":
-        
+    print(get_triangle_points_sorted([0,1,2],[(0,3),(0,2),(1,0)]))
     for i in iterator_triangle_top((0,3),(3,0),(3,4.5)):
         print(i)
     for i in iterator_triangle_bottom((0,1),(0,20),(10,10)):
