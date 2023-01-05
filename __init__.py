@@ -51,7 +51,7 @@ def get_avg_color_triangle(triangle, points, img_sum):
     
     px, py, pz = get_triangle_points_sorted(triangle, points)
     for line in get_triangle_iterator(px, py, pz):
-
+        
 
     
 
@@ -104,6 +104,17 @@ def main():
     # IMAGE
     img = mpimg.imread(IMG_FOLDER + "/" + IMAGE_INPUT)
     height, width = len(img), len(img[0])
+    
+    pixel_size = len(img[0,0])
+    # Create running sum array
+    
+    img_sum = np.zeros(shape=(height, width + 1, pixel_size))
+    for i in range(height):
+        running_sum = img_sum[0,0]
+        for j in range(1, width + 1):
+            running_sum += img[i,j]
+            img_sum[i, i] = running_sum
+    
     
     points = [(0,0),(0,width - 1),(height - 1,0),(height - 1,width - 1)]
     tri = Delaunay(points)
