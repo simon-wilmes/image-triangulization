@@ -9,8 +9,8 @@ from time import time
 from itertools import chain
 from tqdm import tqdm
 import os
-import moviepy.video.io.ImageSequenceClip
-import magic
+#import moviepy.video.io.ImageSequenceClip
+#import magic
 
 ########## IMAGE VALUES
 IMG_INPUT = 'papa-start-bild-higher-pwr.png'
@@ -21,12 +21,12 @@ MASK_TRUE_VALUE = np.array([0,0,0,1])
 IMG_FOLDER = 'img/papa-bild-3'
 IMG_TYPE = 'png'
 MAX_DIFF_VALUE = 3 # depends on image type (jpg vs png)
-NUM_POINTS = 2000
+NUM_POINTS = 20
 DISTANCE_BETWEEN_POINTS = 3
 
 ########## WHEN TO STORE AN IMAGE
 # indices = [6, 10, 15, 21, 28, 36, 45, 55 ....]
-indices_save_image = chain(range(6, 400,1),range(400,1200,2),range(1200,10000,22))
+indices_save_image = list(chain(range(6, 400,1),range(400,1200,2),range(1200,10000,22)))
 """
 running_sum = 5
 inc = 1
@@ -40,11 +40,11 @@ indices_save_image.append(NUM_POINTS)
 """
 print("Indices to save", indices_save_image)
 ######### HOW DIFFERENT DO POINTS NEED TO BE
-POWER_CONSTANT = 5
+POWER_CONSTANT = 4
 def update_rareness(n):
     # some formula that for n -> infty goes to 1 
     # speed determines how often new points are choosen early relative to later on
-    return 0.99#1 - 1 / (n / 4)**(1/2) 
+    return 0.96#1 - 1 / (n / 4)**(1/2) 
 
 ######### VIDEO VALUES
 FPS = 5
@@ -213,8 +213,8 @@ def main():
     image_files = sorted(image_files)
     image_files.remove(IMG_FOLDER  + "/" + IMG_INPUT)
     image_files += [IMG_FOLDER  + "/" + IMG_INPUT for _ in range(NUMBER_ORIGINAL_FRAME_SECONDS * FPS)]
-    clip = moviepy.video.io.ImageSequenceClip.ImageSequenceClip(image_files, fps=FPS)
-    clip.write_videofile(IMG_INPUT.rsplit('.',1)[0] + ".mp4")
+    #clip = moviepy.video.io.ImageSequenceClip.ImageSequenceClip(image_files, fps=FPS)
+   # clip.write_videofile(IMG_INPUT.rsplit('.',1)[0] + ".mp4")
     
             
 
