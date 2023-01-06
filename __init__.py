@@ -13,34 +13,43 @@ import moviepy.video.io.ImageSequenceClip
 import magic
 
 ########## IMAGE VALUES
-IMG_INPUT = 'zpapa-start-bild.png'
-IMG_FOLDER = 'img/papa-bild-png'
+IMG_INPUT = 'papa-start-bild-higher-pwr.png'
+MASK_INPUT = 'papa-start-bild-higher-mask.png'
+USE_MASK = True
+MASK_FACTOR = 2
+MASK_TRUE_VALUE = np.array([0,0,0,1])
+IMG_FOLDER = 'img/papa-bild-3'
 IMG_TYPE = 'png'
 MAX_DIFF_VALUE = 3 # depends on image type (jpg vs png)
-NUM_POINTS = 10000
-
+NUM_POINTS = 2000
+DISTANCE_BETWEEN_POINTS = 3
 
 ########## WHEN TO STORE AN IMAGE
 # indices = [6, 10, 15, 21, 28, 36, 45, 55 ....]
-indices_save_image = [6]
+indices_save_image = chain(range(6, 400,1),range(400,1200,2),range(1200,10000,22))
+"""
 running_sum = 5
 inc = 1
 while(running_sum < NUM_POINTS):
-    running_sum += inc
-    inc += 3
+    running_sum += 2
+    running_sum += 2 * int(running_sum / 300)
+    if(running_sum > 1200):
+        running_sum += 4 * int(running_sum / 100)
     indices_save_image.append(running_sum)
 indices_save_image.append(NUM_POINTS)
+"""
+print("Indices to save", indices_save_image)
 ######### HOW DIFFERENT DO POINTS NEED TO BE
-POWER_CONSTANT = 3
+POWER_CONSTANT = 5
 def update_rareness(n):
     # some formula that for n -> infty goes to 1 
     # speed determines how often new points are choosen early relative to later on
-    return 1 - 1 / (n / 4)**(1/2) 
+    return 0.99#1 - 1 / (n / 4)**(1/2) 
 
 ######### VIDEO VALUES
-FPS = 2
-
-
+FPS = 5
+NUMBER_ORIGINAL_FRAME_SECONDS = 3
+print(f"{len(indices_save_image) / FPS + NUMBER_ORIGINAL_FRAME_SECONDS}s total Video Runtime")
 
 def get_triangle_points_sorted(triangle, points):
     return sorted([points[triangle[0]], points[triangle[1]], points[triangle[2]]], key=lambda x: x[0] - 1 / (x[1] + 1))
@@ -120,6 +129,7 @@ def colorin_triangle(triangle, points, img, color):
 def main():
     # IMAGE
     img = mpimg.imread(IMG_FOLDER + "/" + IMG_INPUT)
+    mask_img = mpimg.imread(IMG_FOLDER + "/" + MASK_INPUT)
     height, width = len(img), len(img[0])
     
     pixel_size = len(img[0,0])
@@ -144,59 +154,67 @@ def main():
         r = 0
         while(len(points) != NUM_POINTS):
             #print(r, end="\t", flush=True)
-            r += 1
+            
             
             random_point = (randint(0, height), randint(0, width))
-            # get color
-            triangle = tuple(tri.simplices[tri.find_simplex(random_point)])
-            # get color of triangle
             
-            if(triangle in triangle_col_cal):
-                col = triangle_col_cal[triangle]
+            #check if any point is closer than min_distance
+            for point in points:
+                if((point[0] - random_point[0])**2 + (point[1] - random_point[1])**2 <= DISTANCE_BETWEEN_POINTS**2):
+                    break
             else:
-                col = get_avg_color_triangle(triangle, points, img_sum)
-                triangle_col_cal[triangle] = col
-            
-            
-            difference = np.sum(np.absolute(col - img[random_point]))
-            
-            if(random() * rareness < (difference / MAX_DIFF_VALUE)**POWER_CONSTANT):
-                # if successfull add point
-                points.append(random_point)
-                # recalculate triangles
-                tri = Delaunay(points)
-                # update rareness
-                rareness = update_rareness(len(points))
+                # get color
+                r += 1
+                triangle = tuple(tri.simplices[tri.find_simplex(random_point)])
+                # get color of triangle
                 
-                pbar.update(1)
+                if(triangle in triangle_col_cal):
+                    col = triangle_col_cal[triangle]
+                else:
+                    col = get_avg_color_triangle(triangle, points, img_sum)
+                    triangle_col_cal[triangle] = col
                 
                 
-                # if number of points is in indices_save_image => save_image :)
-                if(len(points) in indices_save_image):
-                    # create copy to draw on
-                    img_with_points = img.copy()
+                difference = np.sum(np.absolute(col - img[random_point]))
+                
+                tmp_mask_factor = MASK_FACTOR if mask_img[random_point[0], random_point[1]] == MASK_TRUE_VALUE else 1
+               
+                if(random() * rareness * tmp_mask_factor < (difference / MAX_DIFF_VALUE)**POWER_CONSTANT):
+                    # if successfull add point
+                    points.append(random_point)
+                    # recalculate triangles
+                    tri = Delaunay(points)
+                    # update rareness
+                    rareness = update_rareness(len(points))
+                    
+                    pbar.update(1)
+                    
+                    
+                    # if number of points is in indices_save_image => save_image :)
+                    if(len(points) in indices_save_image):
+                        # create copy to draw on
+                        img_with_points = img.copy()
 
-                    triangles = tri.simplices
-                    color_list = []
-                    # draw triangles
-                    for triangle in triangles:
-                        color_list.append(get_avg_color_triangle(triangle, points, img_sum))
-                        colorin_triangle(triangle, points, img_with_points, color_list[-1])
+                        triangles = tri.simplices
+                        color_list = []
+                        # draw triangles
+                        for triangle in triangles:
+                            color_list.append(get_avg_color_triangle(triangle, points, img_sum))
+                            colorin_triangle(triangle, points, img_with_points, color_list[-1])
 
-                    # Save image
-                    #print(f"Save Image: {round(time() - start_time,1)}")
-                    mpimg.imsave(f"{IMG_FOLDER}/tri_image-{len(points):05d}-{r}.{IMG_TYPE}",img_with_points)
+                        # Save image
+                        #print(f"Save Image: {round(time() - start_time,1)}")
+                        mpimg.imsave(f"{IMG_FOLDER}/tri_image-{len(points):05d}-{r}.{IMG_TYPE}",img_with_points)
     print("Finished Generating Points")
-    print("Start Generating Image")
+    print("Start Generating Video")
     image_files = [os.path.join(IMG_FOLDER,img)
                for img in os.listdir(IMG_FOLDER)
                if img.endswith(IMG_TYPE)]
     image_files = sorted(image_files)
     image_files.remove(IMG_FOLDER  + "/" + IMG_INPUT)
-    image_files.append(IMG_FOLDER  + "/" + IMG_INPUT)
-    image_files.append(IMG_FOLDER  + "/" + IMG_INPUT)
-    clip = moviepy.video.io.ImageSequenceClip.ImageSequenceClip(image_files, fps=fps)
-    clip.write_videofile('papa-video-png.mp4')
+    image_files += [IMG_FOLDER  + "/" + IMG_INPUT for _ in range(NUMBER_ORIGINAL_FRAME_SECONDS * FPS)]
+    clip = moviepy.video.io.ImageSequenceClip.ImageSequenceClip(image_files, fps=FPS)
+    clip.write_videofile(IMG_INPUT.rsplit('.',1)[0] + ".mp4")
     
             
 
