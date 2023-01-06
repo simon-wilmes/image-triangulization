@@ -7,14 +7,16 @@ from scipy.spatial import Delaunay
 from matplotlib.path import Path
 from time import time
 from itertools import chain
+import tqdm
+
 
 # Init
 # Load image 
-IMAGE_INPUT = 'papa-start-bild.jpg'
-IMG_FOLDER = 'img/papa-bild'
-IMG_TYPE = 'jpg'
+IMAGE_INPUT = 'papa-start-bild.png'
+IMG_FOLDER = 'img/papa-bild-png'
+IMG_TYPE = 'png'
 
-MAX_DIFF_VALUE = 3 * 255 # depends on image type (jpg vs png)
+MAX_DIFF_VALUE = 3 # depends on image type (jpg vs png)
 
 NUM_POINTS = 10000
 
@@ -31,7 +33,7 @@ while(running_sum < NUM_POINTS):
 
 
 
-np.random.seed(seed=0)
+np.random.seed(seed=1)
 
 def get_triangle_points_sorted(triangle, points):
     return sorted([points[triangle[0]], points[triangle[1]], points[triangle[2]]], key=lambda x: x[0] - 1 / (x[1] + 1))
@@ -134,7 +136,7 @@ def main():
     
     r = 0
     while(len(points) != NUM_POINTS):
-        print(r, end="\t", flush=True)
+        #print(r, end="\t", flush=True)
         r += 1
         
         random_point = (randint(0, height), randint(0, width))
