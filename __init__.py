@@ -177,7 +177,7 @@ def main():
                 
                 difference = np.sum(np.absolute(col - img[random_point]))
                 
-                tmp_mask_factor = MASK_FACTOR if mask_img[random_point[0], random_point[1]] == MASK_TRUE_VALUE else 1
+                tmp_mask_factor = MASK_FACTOR if (mask_img[random_point[0], random_point[1]] == MASK_TRUE_VALUE).all() else 1
                
                 if(random() * rareness * tmp_mask_factor < (difference / MAX_DIFF_VALUE)**POWER_CONSTANT):
                     # if successfull add point
