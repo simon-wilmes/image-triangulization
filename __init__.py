@@ -7,33 +7,40 @@ from scipy.spatial import Delaunay
 from matplotlib.path import Path
 from time import time
 from itertools import chain
-import tqdm
+from tqdm import tqdm
+import os
+import moviepy.video.io.ImageSequenceClip
+import magic
 
-
-# Init
-# Load image 
-IMAGE_INPUT = 'papa-start-bild.png'
+########## IMAGE VALUES
+IMG_INPUT = 'zpapa-start-bild.png'
 IMG_FOLDER = 'img/papa-bild-png'
 IMG_TYPE = 'png'
-
 MAX_DIFF_VALUE = 3 # depends on image type (jpg vs png)
-
 NUM_POINTS = 10000
 
+
+########## WHEN TO STORE AN IMAGE
 # indices = [6, 10, 15, 21, 28, 36, 45, 55 ....]
 indices_save_image = [6]
-running_sum = 6
-inc = 4
+running_sum = 5
+inc = 1
 while(running_sum < NUM_POINTS):
     running_sum += inc
-    inc += 1
+    inc += 3
     indices_save_image.append(running_sum)
+indices_save_image.append(NUM_POINTS)
+######### HOW DIFFERENT DO POINTS NEED TO BE
+POWER_CONSTANT = 3
+def update_rareness(n):
+    # some formula that for n -> infty goes to 1 
+    # speed determines how often new points are choosen early relative to later on
+    return 1 - 1 / (n / 4)**(1/2) 
+
+######### VIDEO VALUES
+FPS = 2
 
 
-
-
-
-np.random.seed(seed=1)
 
 def get_triangle_points_sorted(triangle, points):
     return sorted([points[triangle[0]], points[triangle[1]], points[triangle[2]]], key=lambda x: x[0] - 1 / (x[1] + 1))
@@ -91,6 +98,8 @@ def get_avg_color_triangle(triangle, points, img_sum):
     for line, x, y in get_triangle_iterator(px, py, pz):
         avg_color += img_sum[line,y] - img_sum[line,x]
         avg_count += y - x
+    if(avg_count == 0):
+        avg_count = 1
     return (avg_color / avg_count)
 
 
@@ -104,23 +113,20 @@ def colorin_triangle(triangle, points, img, color):
 
 
 
-def update_rareness(n):
-    # some formula that for n -> infty goes to 1 
-    # speed determines how often new points are choosen early relative to later on
-    return 1 - 1 / (n / 4)**(1/2) 
+
 
 
 
 def main():
     # IMAGE
-    img = mpimg.imread(IMG_FOLDER + "/" + IMAGE_INPUT)
+    img = mpimg.imread(IMG_FOLDER + "/" + IMG_INPUT)
     height, width = len(img), len(img[0])
     
     pixel_size = len(img[0,0])
     # Create running sum array
     print("Calculate Running Sum Array")
     img_sum = np.zeros(shape=(height, width + 1, pixel_size))
-    for i in range(height):
+    for i in tqdm(range(height)):
         running_sum = img_sum[0,0].copy()
         for j in range(1, width + 1):
             running_sum += img[i,j - 1]
@@ -133,54 +139,65 @@ def main():
     rareness = update_rareness(len(points))
     
     triangle_col_cal = {}
+    print("Start Generating Points")
+    with tqdm(total=NUM_POINTS) as pbar:
+        r = 0
+        while(len(points) != NUM_POINTS):
+            #print(r, end="\t", flush=True)
+            r += 1
+            
+            random_point = (randint(0, height), randint(0, width))
+            # get color
+            triangle = tuple(tri.simplices[tri.find_simplex(random_point)])
+            # get color of triangle
+            
+            if(triangle in triangle_col_cal):
+                col = triangle_col_cal[triangle]
+            else:
+                col = get_avg_color_triangle(triangle, points, img_sum)
+                triangle_col_cal[triangle] = col
+            
+            
+            difference = np.sum(np.absolute(col - img[random_point]))
+            
+            if(random() * rareness < (difference / MAX_DIFF_VALUE)**POWER_CONSTANT):
+                # if successfull add point
+                points.append(random_point)
+                # recalculate triangles
+                tri = Delaunay(points)
+                # update rareness
+                rareness = update_rareness(len(points))
+                
+                pbar.update(1)
+                
+                
+                # if number of points is in indices_save_image => save_image :)
+                if(len(points) in indices_save_image):
+                    # create copy to draw on
+                    img_with_points = img.copy()
+
+                    triangles = tri.simplices
+                    color_list = []
+                    # draw triangles
+                    for triangle in triangles:
+                        color_list.append(get_avg_color_triangle(triangle, points, img_sum))
+                        colorin_triangle(triangle, points, img_with_points, color_list[-1])
+
+                    # Save image
+                    #print(f"Save Image: {round(time() - start_time,1)}")
+                    mpimg.imsave(f"{IMG_FOLDER}/tri_image-{len(points):05d}-{r}.{IMG_TYPE}",img_with_points)
+    print("Finished Generating Points")
+    print("Start Generating Image")
+    image_files = [os.path.join(IMG_FOLDER,img)
+               for img in os.listdir(IMG_FOLDER)
+               if img.endswith(IMG_TYPE)]
+    image_files = sorted(image_files)
+    image_files.remove(IMG_FOLDER  + "/" + IMG_INPUT)
+    image_files.append(IMG_FOLDER  + "/" + IMG_INPUT)
+    image_files.append(IMG_FOLDER  + "/" + IMG_INPUT)
+    clip = moviepy.video.io.ImageSequenceClip.ImageSequenceClip(image_files, fps=fps)
+    clip.write_videofile('papa-video-png.mp4')
     
-    r = 0
-    while(len(points) != NUM_POINTS):
-        #print(r, end="\t", flush=True)
-        r += 1
-        
-        random_point = (randint(0, height), randint(0, width))
-        # get color
-        triangle = tuple(tri.simplices[tri.find_simplex(random_point)])
-        # get color of triangle
-        
-        if(triangle in triangle_col_cal):
-            col = triangle_col_cal[triangle]
-        else:
-            col = get_avg_color_triangle(triangle, points, img_sum)
-            triangle_col_cal[triangle] = col
-        
-        
-        difference = np.sum(np.absolute(col - img[random_point]))
-        
-        if(random() * rareness < (difference / MAX_DIFF_VALUE)**3):
-            # if successfull add point
-            points.append(random_point)
-            # recalculate triangles
-            tri = Delaunay(points)
-            # update rareness
-            rareness = update_rareness(len(points))
-            
-            print(f"succesfull {len(points)}", end="\t")
-            print("new rareness", rareness)
-            
-            
-            # if number of points is in indices_save_image => save_image :)
-            if(len(points) in indices_save_image):
-                # create copy to draw on
-                img_with_points = img.copy()
-
-                triangles = tri.simplices
-                color_list = []
-                # draw triangles
-                for triangle in triangles:
-                    color_list.append(get_avg_color_triangle(triangle, points, img_sum))
-                    colorin_triangle(triangle, points, img_with_points, color_list[-1])
-
-                # Save image
-                print(f"Save Image: {round(time() - start_time,1)}")
-                mpimg.imsave(f"{IMG_FOLDER}/tri_image-{len(points):05d}-{r}.{IMG_TYPE}",img_with_points)
-            
             
 
 if __name__ == "__main__":
