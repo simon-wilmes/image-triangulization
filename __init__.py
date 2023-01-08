@@ -1,11 +1,11 @@
-import matplotlib.pyplot as plt
-import numpy as np
 import matplotlib.image as mpimg
-import random
-from numpy.random import randint, random
+import numpy as np
+from numpy.random import RandomState
+
+
 from scipy.spatial import Delaunay
-from matplotlib.path import Path
 from time import time
+
 from itertools import chain
 from tqdm import tqdm
 import os
@@ -22,7 +22,7 @@ parser.add_argument("number_of_points", help="The number of points that will be 
 parser.add_argument("--mask_img", help="The Image containing the mask. Where black stands for not increased chance and white for increased chance. (Default: None)")
 parser.add_argument("--mask_strength",help="Value between 0 and 1, indicating how much the mask should influence the choosen points. (Default:0.2)",default=0.2,type=float)
 parser.add_argument("--store_all_images",help="Whether to store not only the last output image, but all created. (Warning can be a lot of images if many points where choosen).")
-parser.add_argument("--distance_points",help="The minimum distance between all points in the image. If choosen to high, program might never finish (Default: 3)",type=float,default=3)
+parser.add_argument("--distance_points",help="The minimum distance between all points in the image. If choosen too high, program might never finish (Default: 3)",type=float,default=3)
 parser.add_argument("--output_folder",help="The name of the output folder in which to store all images and the output video (Default: 'output').",default='output')
 parser.add_argument("--video_length",help="The length of the output video in seconds (Default: '5').",default=5,type=float)
 parser.add_argument("--video-fps",help="The FPS of the output video (Default: 30).",default=30,type=int)
@@ -131,7 +131,7 @@ class Triangulizer:
         self.SHOW_ORIGINAL = args.show_original_img
         
         if(args.random_seed is not None):
-            self.random= np.random.RandomState(args.random_seed)
+            self.random= RandomState(args.random_seed)
 
         
         
@@ -164,40 +164,53 @@ class Triangulizer:
         self.img_indices = self.calculate_image_indices()
         
         # Create Points and images
-        self.points = []
+        self.points = [(0,0),(0,self.width - 1),(self.height - 1,0),(self.height - 1,self.width - 1)]
         self.created_images = []
         
+        # Calculate Running Sum Image
+        self.running_sum = self.calculate_running_sum()
+
+
+
         
         self.create_points_adaptive_color()
-        self.create_video(self.created_images)
+        #self.create_video(self.created_images)
         
         print("Finished")
-        
+    def calculate_running_sum(self):
+        """ Calculates an array which stores in the i-th entry the sum of that row from the first
+            to the i-th element. To calculate the sum from the i-th to the j-th Element use array[j] - array[i]
+        Returns:
+            list[int]: The array that contains the running sum. It has dimension height x (width + 1)
+        """
+        print("Calculate Running Sum Array")
+        img_sum = np.zeros(shape=(self.height, self.width + 1, 3))
+        for i in tqdm(range(self.height)):
+            running_sum = [0] * 3
+            for j in range(1, self.width + 1):
+                running_sum += self.normalized_img[i,j - 1]
+                img_sum[i, j] = running_sum.copy()
+        print("Finished Running Sum Array")
+        return running_sum
+
     def calculate_image_indices(self):
+        """ Calculates which number of points is to be shown for each Frame in the Video. All indices are
+
+        Returns:
+            list[int]: List of number of points. i-th Frame should show image with list[i] points
+        """
         num_total_images = self.VIDEO_FPS * self.VIDEO_LENGTH
         
         curve = (lambda x: x**self.VIDEO_SPEED_UP * self.NUM_POINTS)
-        
-        
         indices = [np.floor(curve(image_num / num_total_images)) for image_num in range(int(num_total_images) + 1)]
         return indices
     
-    
+    def create_points_adaptive_color(self):
+        
+        pass
         
 def main():
 
-    pixel_size = len(img[0,0])
-    # Create running sum array
-    print("Calculate Running Sum Array")
-    img_sum = np.zeros(shape=(height, width + 1, pixel_size))
-    for i in tqdm(range(height)):
-        running_sum = img_sum[0,0].copy()
-        for j in range(1, width + 1):
-            running_sum += img[i,j - 1]
-            img_sum[i, j] = running_sum.copy()
-    print("Finished Running Sum Array")
-    
-    points = [(0,0),(0,width - 1),(height - 1,0),(height - 1,width - 1)]
     tri = Delaunay(points)
     start_time = time()
     rareness = update_rareness(len(points))
