@@ -25,10 +25,10 @@ parser.add_argument("--store_all_images",help="Whether to store not only the las
 parser.add_argument("--distance_points",help="The minimum distance between all points in the image. If choosen too high, program might never finish (Default: 3)",type=float,default=2)
 parser.add_argument("--output_folder",help="The name of the output folder in which to store all images and the output video (Default: 'output').",default='output')
 parser.add_argument("--video_length",help="The length of the output video in seconds (Default: '5').",default=5,type=float)
-parser.add_argument("--video-fps",help="The FPS of the output video (Default: 30).",default=30,type=int)
+parser.add_argument("--video_fps",help="The FPS of the output video (Default: 30).",default=30,type=int)
 parser.add_argument("--show_original_img",help="How long the original image is shown at the end of the video in seconds (Default: 3).",default=3,type=float)
 parser.add_argument("--random_seed",help="Is used as the seed for the random values. Must be an integer",type=int)
-
+parser.add_argument("--video_speed_up",help="The higher this value the slower the video starts and the quicker it ends. In terms of how many points are added in each frame. Range(0 < x <= 5) (Default: 2)", default=2, type=float)
 args = parser.parse_args()
 
 
@@ -53,7 +53,7 @@ class Triangulizer:
         self.MIN_DISTANCE_POINTS = args.distance_points
         self.OUTPUT_FOLDER = Path(args.output_folder)
         self.VIDEO_FPS = args.video_fps
-        self.VIDEO_SPEED_UP = 2
+        self.VIDEO_SPEED_UP = args.video_speed_up
         self.VIDEO_LENGTH = args.video_length
         self.SHOW_ORIGINAL = args.show_original_img
         self.DIFF_POWER_CONSTANT = 3
@@ -81,7 +81,7 @@ class Triangulizer:
                 # construct full file path
                 file = self.OUTPUT_FOLDER / file_name
                 if os.path.isfile(file) and file.suffix in [".png",".jpg", ".mp4"]:
-                    #os.remove(file)
+                    os.remove(file)
                     pass
         
         
@@ -141,7 +141,7 @@ class Triangulizer:
         return img_sum
 
     def calculate_image_indices(self):
-        """ Calculates which number of points is to be shown for each Frame in the Video. All indices are
+        """ Calculates which number of points is to be shown for each frame in the video.
 
         Returns:
             list[int]: List of number of points. i-th Frame should show image with list[i] points
@@ -324,36 +324,13 @@ class Triangulizer:
     
     def colorin_triangle(self, triangle, img, color):
         px, py, pz = self.get_triangle_points_sorted(triangle)
-        
         for line, x, y in self.get_triangle_iterator(px, py, pz):
             for j in range(x,y):
                 img[line,j] = color
     
-""""
-    print("Finished Generating Points")
-    print("Start Generating Video")
-    image_files = [os.path.join(IMG_FOLDER,img)
-               for img in os.listdir(IMG_FOLDER)
-               if img.endswith(IMG_TYPE)]
-    image_files = sorted(image_files)
-    try:
-        image_files.remove(IMG_FOLDER  + "/" + IMG_INPUT)
-    except:
-        pass
-    try:
-        image_files.remove(IMG_FOLDER + "/" + MASK_INPUT)
-    except:
-        pass
-    image_files += [IMG_FOLDER  + "/" + IMG_INPUT for _ in range(NUMBER_ORIGINAL_FRAME_SECONDS * FPS)]
-    clip = moviepy.video.io.ImageSequenceClip.ImageSequenceClip(image_files, fps=FPS)
-    clip.write_videofile(IMG_INPUT.rsplit('.',1)[0] + ".mp4")
-"""
-            
+
 
 if __name__ == "__main__":
     
     triangulizer = Triangulizer(args)
     triangulizer.run()
-    #print(list(triangulizer.get_triangle_iterator((0,0),(0,10),(1,12))))
-    
-    print("Finished")

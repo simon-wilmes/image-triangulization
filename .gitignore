@@ -3,3 +3,4 @@ img
 output
 *.png
 *.jpg
+__pycache__
