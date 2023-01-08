@@ -17,14 +17,14 @@ from pathlib import Path
 
 parser = argparse.ArgumentParser(prog='Triangulizer',description='A program to "triangualize" an image. And create a video showing the incremental addtions of triangles.')
 
-parser.add_argument("input_img", help="The img to triangulize.")
+parser.add_argument("input_img", help="The img to triangulize. Must not contain any transparency.")
 parser.add_argument("number_of_points", help="The number of points that will be created.",type=int)
 parser.add_argument("--mask_img", help="The Image containing the mask. Where black stands for not increased chance and white for increased chance. (Default: None)")
 parser.add_argument("--mask_strength",help="Value between 0 and 1, indicating how much the mask should influence the choosen points. (Default:0.2)",default=0.2,type=float)
 parser.add_argument("--store_all_images",help="Whether to store not only the last output image, but all created. (Warning can be a lot of images if many points where choosen).")
 parser.add_argument("--distance_points",help="The minimum distance between all points in the image. If choosen to high, program might never finish (Default: 3)",type=float,default=3)
 parser.add_argument("--output_folder",help="The name of the output folder in which to store all images and the output video (Default: 'output').",default='output')
-parser.add_argument("--video_length",help="The length of the output video in seconds (Default: '5').",default=5)
+parser.add_argument("--video_length",help="The length of the output video in seconds (Default: '5').",default=5,type=float)
 parser.add_argument("--video-fps",help="The FPS of the output video (Default: 30).",default=30,type=int)
 parser.add_argument("--show_original_img",help="How long the original image is shown at the end of the video in seconds (Default: 3).",default=3,type=float)
 
@@ -32,21 +32,9 @@ args = parser.parse_args()
 
 
 
-MAX_DIFF_VALUE = 3 # depends on image type (jpg vs png)
 
 
-########## WHEN TO STORE AN IMAGE
 
-######### HOW DIFFERENT DO POINTS NEED TO BE
-POWER_CONSTANT = 5
-def update_rareness(n):
-    # some formula that for n -> infty goes to 1 
-    # speed determines how often new points are choosen early relative to later on
-    return 0.95#1 - 1 / (n / 4)**(1/2) 
-
-######### VIDEO VALUES
-FPS = 30
-NUMBER_ORIGINAL_FRAME_SECONDS = 3
 
 def get_triangle_points_sorted(triangle, points):
     return sorted([points[triangle[0]], points[triangle[1]], points[triangle[2]]], key=lambda x: x[0] - 1 / (x[1] + 1))
@@ -140,17 +128,31 @@ class Triangulizer:
         self.VIDEO_SPEED_UP = 2
         self.VIDEO_LENGTH = args.video_length
         self.SHOW_ORIGINAL = args.show_original_img
+        
+        self.IMAGE_RANGE = 255
         # Create output folder if not exists
         try:
             os.mkdir(self.FOLDER)
         except:
             pass
         
-        # Open Image and get width and height
-        self.img = mpimg.imread(self.IMG_INPUT)
+        # Open image and store only the non-alpha part
+        self.img = mpimg.imread(self.IMG_INPUT)[:,:,:3]
+        # Normalize image
+        self.normalized_img = np.array((self.img - np.min(self.img)) / np.max(self.img) * self.IMAGE_RANGE,dtype=int)
+        
+        # If mask img was given -> create boolean array mask
         if(self.USE_MASK):
             self.mask_img = mpimg.imread(self.MASK_INPUT)
+            self.mask = np.array(np.round(np.dot(self.mask_img[...,:3], [0.3333, 0.3333, 0.3334])), dtype=bool)
+            
+        
         self.height, self.width = len(self.img), len(self.img[0])
+        self.max_diff_value = 3 * self.IMAGE_RANGE
+        
+        
+        
+        
         
         # Create Indices of points of when to store a frame
         self.img_indices = self.calculate_image_indices()
@@ -160,9 +162,10 @@ class Triangulizer:
         self.created_images = []
         
         
-        
         self.create_points_adaptive_color()
         self.create_video(self.created_images)
+        
+        print("Finished")
         
     def calculate_image_indices(self):
         num_total_images = self.VIDEO_FPS * self.VIDEO_LENGTH
@@ -170,21 +173,13 @@ class Triangulizer:
         curve = (lambda x: x**self.VIDEO_SPEED_UP * self.NUM_POINTS)
         
         
-        indices = [np.floor(curve(image_num / num_total_images)) for image_num in range(num_total_images + 1)]
+        indices = [np.floor(curve(image_num / num_total_images)) for image_num in range(int(num_total_images) + 1)]
         return indices
+    
+    
         
 def main():
-    
-    
-    
-    
-    
-    
-    # IMAGE
-    img = mpimg.imread(IMG_FOLDER + "/" + IMG_INPUT)
-    mask_img = mpimg.imread(IMG_FOLDER + "/" + MASK_INPUT)
-    height, width = len(img), len(img[0])
-    
+
     pixel_size = len(img[0,0])
     # Create running sum array
     print("Calculate Running Sum Array")
@@ -281,4 +276,4 @@ def main():
 if __name__ == "__main__":
     
     t = Triangulizer(args)
-    
+    print("Finished")

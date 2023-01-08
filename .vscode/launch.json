@@ -11,7 +11,7 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "justMyCode": true,
-            "args": ["test-img.png","10000","--mask_img", "test-mask.png"]
+            "args": ["test-img.png","10000","--mask_img", "test-mask.png","--video_length","40"]
         }
     ]
 }
