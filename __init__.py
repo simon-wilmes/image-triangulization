@@ -27,6 +27,7 @@ parser.add_argument("--output_folder",help="The name of the output folder in whi
 parser.add_argument("--video_length",help="The length of the output video in seconds (Default: '5').",default=5,type=float)
 parser.add_argument("--video-fps",help="The FPS of the output video (Default: 30).",default=30,type=int)
 parser.add_argument("--show_original_img",help="How long the original image is shown at the end of the video in seconds (Default: 3).",default=3,type=float)
+parser.add_argument("--random_seed",help="Is used as the seed for the random values.",type=float)
 
 args = parser.parse_args()
 
@@ -128,6 +129,11 @@ class Triangulizer:
         self.VIDEO_SPEED_UP = 2
         self.VIDEO_LENGTH = args.video_length
         self.SHOW_ORIGINAL = args.show_original_img
+        
+        if(args.random_seed is not None):
+            self.random= np.random.RandomState(args.random_seed)
+
+        
         
         self.IMAGE_RANGE = 255
         # Create output folder if not exists
