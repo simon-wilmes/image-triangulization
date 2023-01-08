@@ -10,7 +10,8 @@
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
-            "justMyCode": true
+            "justMyCode": true,
+            "args": ["test-img.png","10000","--mask_img", "test-mask.png"]
         }
     ]
 }

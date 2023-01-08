@@ -12,37 +12,31 @@ import os
 import moviepy.video.io.ImageSequenceClip
 import magic
 import argparse
+from pathlib import Path
 
-parser = argparse.ArgumentParser(description='A program to "triangualize" an image. And create a video showing the incremental addtions of triangles.')
+
+parser = argparse.ArgumentParser(prog='Triangulizer',description='A program to "triangualize" an image. And create a video showing the incremental addtions of triangles.')
+
+parser.add_argument("input_img", help="The img to triangulize.")
+parser.add_argument("number_of_points", help="The number of points that will be created.",type=int)
+parser.add_argument("--mask_img", help="The Image containing the mask. Where black stands for not increased chance and white for increased chance. (Default: None)")
+parser.add_argument("--mask_strength",help="Value between 0 and 1, indicating how much the mask should influence the choosen points. (Default:0.2)",default=0.2,type=float)
+parser.add_argument("--store_all_images",help="Whether to store not only the last output image, but all created. (Warning can be a lot of images if many points where choosen).")
+parser.add_argument("--distance_points",help="The minimum distance between all points in the image. If choosen to high, program might never finish (Default: 3)",type=float,default=3)
+parser.add_argument("--output_folder",help="The name of the output folder in which to store all images and the output video (Default: 'output').",default='output')
+parser.add_argument("--video_length",help="The length of the output video in seconds (Default: '5').",default=5)
+parser.add_argument("--video-fps",help="The FPS of the output video (Default: 30).",default=30,type=int)
+parser.add_argument("--show_original_img",help="How long the original image is shown at the end of the video in seconds (Default: 3).",default=3,type=float)
+
+args = parser.parse_args()
 
 
-########## IMAGE VALUES
-IMG_INPUT = 'papa-start-bild-higher-pwr.png'
-MASK_INPUT = 'papa-start-bild-higher-mask.png'
-USE_MASK = True
-MASK_FACTOR = 2
-MASK_TRUE_VALUE = np.array([0,0,0,1])
-IMG_FOLDER = 'img/papa-bild-3'
-IMG_TYPE = 'png'
+
 MAX_DIFF_VALUE = 3 # depends on image type (jpg vs png)
-NUM_POINTS = 10_000
-DISTANCE_BETWEEN_POINTS = 3
+
 
 ########## WHEN TO STORE AN IMAGE
-# indices = [6, 10, 15, 21, 28, 36, 45, 55 ....]
-indices_save_image = list(chain(range(6, 400,1),range(400,1200,2),range(1200,10000,22)))
-"""
-running_sum = 5
-inc = 1
-while(running_sum < NUM_POINTS):
-    running_sum += 2
-    running_sum += 2 * int(running_sum / 300)
-    if(running_sum > 1200):
-        running_sum += 4 * int(running_sum / 100)
-    indices_save_image.append(running_sum)
-indices_save_image.append(NUM_POINTS)
-"""
-print("Indices to save", indices_save_image)
+
 ######### HOW DIFFERENT DO POINTS NEED TO BE
 POWER_CONSTANT = 5
 def update_rareness(n):
@@ -53,7 +47,6 @@ def update_rareness(n):
 ######### VIDEO VALUES
 FPS = 30
 NUMBER_ORIGINAL_FRAME_SECONDS = 3
-print(f"{len(indices_save_image) / FPS + NUMBER_ORIGINAL_FRAME_SECONDS}s total Video Runtime")
 
 def get_triangle_points_sorted(triangle, points):
     return sorted([points[triangle[0]], points[triangle[1]], points[triangle[2]]], key=lambda x: x[0] - 1 / (x[1] + 1))
@@ -125,13 +118,68 @@ def colorin_triangle(triangle, points, img, color):
             img[line,j] = color
 
 
+def calculate_images():
+    pass
 
-
-
-
-
-
+def create_video():
+    pass
+class Triangulizer:
+    def __init__(self, args):
+        # Parse Args
+        self.IMG_INPUT = Path(args.input_img)
+        self.MASK_INPUT = Path(args.mask_img)
+        self.USE_MASK = (args.mask_img is not None)
+        self.MASK_FACTOR = args.mask_strength
+        self.MASK_TRUE_VALUE = 0
+        self.IMG_FOLDER = args.output_folder
+        self.IMG_TYPE = self.IMG_INPUT.suffix
+        self.NUM_POINTS = args.number_of_points
+        self.DISTANCE_BETWEEN_POINTS = args.distance_points
+        self.OUTPUT_FOLDER = Path(args.output_folder)
+        self.VIDEO_FPS = args.video_fps
+        self.VIDEO_SPEED_UP = 2
+        self.VIDEO_LENGTH = args.video_length
+        self.SHOW_ORIGINAL = args.show_original_img
+        # Create output folder if not exists
+        try:
+            os.mkdir(self.FOLDER)
+        except:
+            pass
+        
+        # Open Image and get width and height
+        self.img = mpimg.imread(self.IMG_INPUT)
+        if(self.USE_MASK):
+            self.mask_img = mpimg.imread(self.MASK_INPUT)
+        self.height, self.width = len(self.img), len(self.img[0])
+        
+        # Create Indices of points of when to store a frame
+        self.img_indices = self.calculate_image_indices()
+        
+        # Create Points and images
+        self.points = []
+        self.created_images = []
+        
+        
+        
+        self.create_points_adaptive_color()
+        self.create_video(self.created_images)
+        
+    def calculate_image_indices(self):
+        num_total_images = self.VIDEO_FPS * self.VIDEO_LENGTH
+        
+        curve = (lambda x: x**self.VIDEO_SPEED_UP * self.NUM_POINTS)
+        
+        
+        indices = [np.floor(curve(image_num / num_total_images)) for image_num in range(num_total_images + 1)]
+        return indices
+        
 def main():
+    
+    
+    
+    
+    
+    
     # IMAGE
     img = mpimg.imread(IMG_FOLDER + "/" + IMG_INPUT)
     mask_img = mpimg.imread(IMG_FOLDER + "/" + MASK_INPUT)
@@ -232,4 +280,5 @@ def main():
 
 if __name__ == "__main__":
     
-    main()
+    t = Triangulizer(args)
+    
