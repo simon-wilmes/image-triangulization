@@ -9,8 +9,12 @@ from time import time
 from itertools import chain
 from tqdm import tqdm
 import os
-#import moviepy.video.io.ImageSequenceClip
-#import magic
+import moviepy.video.io.ImageSequenceClip
+import magic
+import argparse
+
+parser = argparse.ArgumentParser(description='A program to "triangualize" an image. And create a video showing the incremental addtions of triangles.')
+
 
 ########## IMAGE VALUES
 IMG_INPUT = 'papa-start-bild-higher-pwr.png'
@@ -21,7 +25,7 @@ MASK_TRUE_VALUE = np.array([0,0,0,1])
 IMG_FOLDER = 'img/papa-bild-3'
 IMG_TYPE = 'png'
 MAX_DIFF_VALUE = 3 # depends on image type (jpg vs png)
-NUM_POINTS = 20
+NUM_POINTS = 10_000
 DISTANCE_BETWEEN_POINTS = 3
 
 ########## WHEN TO STORE AN IMAGE
@@ -40,14 +44,14 @@ indices_save_image.append(NUM_POINTS)
 """
 print("Indices to save", indices_save_image)
 ######### HOW DIFFERENT DO POINTS NEED TO BE
-POWER_CONSTANT = 4
+POWER_CONSTANT = 5
 def update_rareness(n):
     # some formula that for n -> infty goes to 1 
     # speed determines how often new points are choosen early relative to later on
-    return 0.96#1 - 1 / (n / 4)**(1/2) 
+    return 0.95#1 - 1 / (n / 4)**(1/2) 
 
 ######### VIDEO VALUES
-FPS = 5
+FPS = 30
 NUMBER_ORIGINAL_FRAME_SECONDS = 3
 print(f"{len(indices_save_image) / FPS + NUMBER_ORIGINAL_FRAME_SECONDS}s total Video Runtime")
 
@@ -108,6 +112,7 @@ def get_avg_color_triangle(triangle, points, img_sum):
         avg_color += img_sum[line,y] - img_sum[line,x]
         avg_count += y - x
     if(avg_count == 0):
+        print("ERROR COUNT = 0" , triangle, points, img_sum)
         avg_count = 1
     return (avg_color / avg_count)
 
@@ -211,10 +216,17 @@ def main():
                for img in os.listdir(IMG_FOLDER)
                if img.endswith(IMG_TYPE)]
     image_files = sorted(image_files)
-    image_files.remove(IMG_FOLDER  + "/" + IMG_INPUT)
+    try:
+        image_files.remove(IMG_FOLDER  + "/" + IMG_INPUT)
+    except:
+        pass
+    try:
+        image_files.remove(IMG_FOLDER + "/" + MASK_INPUT)
+    except:
+        pass
     image_files += [IMG_FOLDER  + "/" + IMG_INPUT for _ in range(NUMBER_ORIGINAL_FRAME_SECONDS * FPS)]
-    #clip = moviepy.video.io.ImageSequenceClip.ImageSequenceClip(image_files, fps=FPS)
-   # clip.write_videofile(IMG_INPUT.rsplit('.',1)[0] + ".mp4")
+    clip = moviepy.video.io.ImageSequenceClip.ImageSequenceClip(image_files, fps=FPS)
+    clip.write_videofile(IMG_INPUT.rsplit('.',1)[0] + ".mp4")
     
             
 
