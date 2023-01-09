@@ -5,13 +5,22 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python: Current File",
+            "name": "Python: Small Test",
             "type": "python",
             "request": "launch",
-            "program": "${file}",
+            "program": "triangulizer.py",
             "console": "integratedTerminal",
             "justMyCode": true,
-            "args": ["~/Documents/ActiveProjects/image_triangulization/python_new/test-img.png","20","--mask_img", "test-mask.png","--video_length","40","--random_seed","0"]
+            "args": ["~/Documents/ActiveProjects/image_triangulization/python_new/test-img.png","20","--mask_img", "test-mask.png","--video_length","5","--random_seed","0"]
+        },
+        {
+            "name": "Python: Big Test",
+            "type": "python",
+            "request": "launch",
+            "program": "triangulizer.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": ["~/Documents/ActiveProjects/image_triangulization/python_new/test-img.png","20000","--mask_img", "test-mask.png","--video_length","40","--random_seed","0"]
         }
     ]
 }

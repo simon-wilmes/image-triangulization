@@ -10,7 +10,7 @@ from itertools import chain
 from tqdm import tqdm
 import os
 import moviepy.video.io.ImageSequenceClip
-import magic
+#import magic
 import argparse
 from pathlib import Path
 
@@ -81,7 +81,7 @@ class Triangulizer:
                 # construct full file path
                 file = self.OUTPUT_FOLDER / file_name
                 if os.path.isfile(file) and file.suffix in [".png",".jpg", ".mp4"]:
-                    os.remove(file)
+#                    os.remove(file)
                     pass
         
         
@@ -112,7 +112,8 @@ class Triangulizer:
         
         # Create Points and images
         self.points = [(0,0),(0,self.width - 1),(self.height - 1,0),(self.height - 1,self.width - 1)]
-        self.created_images = []
+        self.points_start_len = 4
+        self.created_images = {}
         
         # Calculate Running Sum Image
         self.running_sum = self.calculate_running_sum()
@@ -161,10 +162,18 @@ class Triangulizer:
         print("Start Generating Points")
         total_tries = 0
         num_generated = 0
-        for current_point in tqdm(range(self.NUM_POINTS)):
+        
+        
+        for current_point in tqdm(range(self.NUM_POINTS + 1)):
             #print(current_point, len(self.points), )
             num_tries = 0
             point_added = False
+            
+            # If number of points is in frames to save => create image
+            if(len(self.points) - self.points_start_len in self.img_indices):
+                self.create_image(triangle_col_cal, num_generated, tri)
+            
+            
             while(not point_added):
                 # Generate a point
                 random_point = (self.random.randint(0,self.height),self.random.randint(0,self.width))
@@ -181,12 +190,13 @@ class Triangulizer:
                     
                     triangle = tuple(tri.simplices[tri.find_simplex(random_point)])
                     
+                    triangle_index = tuple(sorted(triangle))
                     # Check if the color of the triangle has already been calculated, otherwise calculate the color
-                    if(triangle in triangle_col_cal):
-                        col = triangle_col_cal[triangle]
+                    if(triangle_index in triangle_col_cal):
+                        col = triangle_col_cal[triangle_index]
                     else:
                         col = self.get_avg_color_triangle(triangle)
-                        triangle_col_cal[triangle] = col
+                        triangle_col_cal[triangle_index] = col
                     
                     # Calculate the difference    
                     diff = np.sum(np.absolute(col - self.normalized_img[random_point]))   
@@ -201,45 +211,46 @@ class Triangulizer:
                         ## Point was choosen
                         self.points.append(random_point)
                         tri = Delaunay(self.points)
-                        # Check if num_tries fits to exspected value, and change rareness accordingly
-                        #print(rareness)
+                        # Check if num_tries fits to expected value, and change rareness accordingly
+
                         if(num_tries < self.adaptive_average_num_tries):
                             rareness *= 1 + self.adaptive_update_value
                         else:
                             rareness *= 1 - self.adaptive_update_value
                             
-                        # If number of points is in frames to save => create image
-                        if(len(self.points) in self.img_indices):
-                            # create copy to draw on
-                            triangle_img = self.img.copy()
-
-                            
-                            triangles = tri.simplices
-                            color_list = []
-                            # draw triangles
-                            for triangle in triangles:
-                                col = self.get_avg_color_triangle(triangle)
-                                triangle_col_cal[tuple(triangle)] = col
-                                max_value, type_value = self.image_to_max_dtype[self.IMG_TYPE]
-                                scaled_col = np.array((col / self.IMAGE_RANGE) * max_value,dtype=type_value)
-                                color_list.append(scaled_col)
-                                
-                                self.colorin_triangle(triangle, triangle_img, scaled_col)
-                                
-                            # Create index that starts with as many zeros as needed to display all points
-                            index = str(len(self.points))
-                            while(len(index) < len(str(self.NUM_POINTS))):
-                                index = '0' + index
-                                
-                            # Create filename
-                            filename = self.OUTPUT_FOLDER / (f"image-{index}-{num_generated}" + self.IMG_TYPE)
-                            self.created_images.append(str(filename))
-                            # Save image
-                            mpimg.imsave(filename,triangle_img)
-                            
                         point_added = True
+                        
+    def create_image(self, triangle_col_cal, num_generated, tri):
+        # create copy to draw on
+        triangle_img = self.img.copy()
 
-        pass
+        
+        triangles = tri.simplices
+        color_list = []
+        # draw triangles
+        for triangle in triangles:
+            col = self.get_avg_color_triangle(triangle)
+            triangle_index = tuple(sorted(triangle))
+            triangle_col_cal[triangle_index] = col
+            
+            max_value, type_value = self.image_to_max_dtype[self.IMG_TYPE]
+            scaled_col = np.array((col / self.IMAGE_RANGE) * max_value,dtype=type_value)
+            color_list.append(scaled_col)
+            
+            self.colorin_triangle(triangle, triangle_img, scaled_col)
+            
+        # Create index that starts with as many zeros as needed to display all points
+        index = str(len(self.points))
+        while(len(index) < len(str(self.NUM_POINTS))):
+            index = '0' + index
+            
+        # Create filename
+        filename = self.OUTPUT_FOLDER / (f"image-{index}-{num_generated}" + self.IMG_TYPE)
+        self.created_images[len(self.points) - self.points_start_len] = str(filename)
+        # Save image
+        mpimg.imsave(filename,triangle_img)        
+
+
     def dist(self, a, b):
         return ((a[0] - b[0])**2 + (a[1] - b[1])**2)**(1/2)
     
@@ -257,8 +268,13 @@ class Triangulizer:
 
     def create_video(self, created_images): 
         print("Start Generating Video")
-        created_images += [str(self.IMG_INPUT)] * (self.SHOW_ORIGINAL * self.VIDEO_FPS)
-        clip = moviepy.video.io.ImageSequenceClip.ImageSequenceClip(created_images, fps=self.VIDEO_FPS)
+        
+        pixel_frames = [self.created_images[i] for i in self.img_indices]
+        original_frames = [str(self.IMG_INPUT)] * (self.SHOW_ORIGINAL * self.VIDEO_FPS)
+        
+        total_frames = pixel_frames + original_frames
+        
+        clip = moviepy.video.io.ImageSequenceClip.ImageSequenceClip(total_frames, fps=self.VIDEO_FPS)
         clip.write_videofile(str(self.IMG_INPUT.parent / Path(self.IMG_INPUT.stem + ".mp4")))
         
         print("Finish Generating Video")
